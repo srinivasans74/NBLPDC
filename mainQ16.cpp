@@ -201,7 +201,7 @@ for (i=0;i<V;i++)
 #pragma HLS unroll
 						min_F = max(F[c][index_c - 1],ALPHAmn_[row][col][0]);
 						minmax_label7:for(b = 0; b < Q; b++){
-#pragma HLS unroll
+#pragma HLS pipeline
 							a = sub_gf(c,mul_gf(H_nb[row][col],b));
 							max_F = max(F[a][index_c - 1], ALPHAmn_[row][col][b]);
 							min_F = min(min_F, max_F);
@@ -217,7 +217,7 @@ for (i=0;i<V;i++)
 #pragma HLS unroll
 						min_B = max(ALPHAmn_[row][col_B][0],B[c][index_B + 1]);
 						minmax_label9:for(b = 0; b < Q; b++){
-#pragma HLS unroll
+#pragma HLS pipeline
 							a = sub_gf(c,mul_gf(H_nb[row][col_B],b));
 							max_B = max(B[a][index_B + 1], ALPHAmn_[row][col_B][b]);
 							min_B = min(min_B, max_B);
@@ -231,7 +231,6 @@ for (i=0;i<V;i++)
 	//2. update BETA values from B and F values
 				if(index_c == 0){
 					minmax_label11:for(a = 0; a < Q; a++){
-#pragma HLS unroll
 						BETAmn_[row][col][a] = B[mul_gf(H_nb[row][col],a)][index_c + 1];
 					}
 				}
@@ -266,7 +265,6 @@ for (i=0;i<V;i++)
 			index_v = 0; 
 			row_v = row_col[0][col_v];
 			minmax_label132:while(index_v < (1)){
-#pragma HLS unroll
 				row_v = row_col[index_v][col_v];
 		minmax_label17:for(a = 0; a < Q; a++){
 		temp = 0;
