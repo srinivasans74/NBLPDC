@@ -1,4 +1,3 @@
-
 #include "stdio.h"
 #include "stdlib.h"
 #include <math.h>
@@ -27,19 +26,20 @@ double **malloc2Ddouble(int arraySizeX, int arraySizeY) // allocates array[a][b]
 //===================================
 unsigned char mul_gf(unsigned char a, unsigned char b)
 {
-#pragma HLS RESOURCE variable=logq core=ROM_1P_BRAM
-#pragma HLS RESOURCE variable=expq core=ROM_1P_BRAM
+#pragma HLS RESOURCE variable=logq core=ROM_2P_BRAM
+#pragma HLS RESOURCE variable=expq core=ROM_2P_BRAM
 
-	/*if (a == 0 || b == 0) return 0;
+	if (a == 0 || b == 0) return 0;
 	if (a == 1) return b;
 	if (b == 1) return a;
-	if ((logq[a] + logq[b])>(Q-1))
+	/*if ((logq[a] + logq[b])>(Q-1))
 			{
 			return	expq[(logq[a] + logq[b])- (Q-1)];
 			}
 			else
-			return expq[(logq[a] + logq[b])];	//table look-up multiplication
-*/
+			return expq[(logq[a] + logq[b])];
+			*///table look-up multiplication
+
 	if (a == 0 || b == 0) return 0;
 		if (a == 1) return b;
 		if (b == 1) return a;
@@ -52,8 +52,8 @@ unsigned char mul_gf(unsigned char a, unsigned char b)
 //===================================
 unsigned char inv_gf(unsigned char a)
 {
-#pragma HLS RESOURCE variable=logq core=ROM_1P_BRAM
-#pragma HLS RESOURCE variable=expq core=ROM_1P_BRAM
+#pragma HLS RESOURCE variable=logq core=ROM_2P_BRAM
+#pragma HLS RESOURCE variable=expq core=ROM_2P_BRAM
 	//if(a == 0) exit (EXIT_FAILURE);
 	if(a == 0) return 0;
 	if(a == 1) return 1;
@@ -81,9 +81,9 @@ int div_gf(int a, int b)
 // Refer to "Min-max decoding for nonbinary LDPC codes"
 int minmax(unsigned char BETAmn_[U][V][Q], unsigned char ALPHAmn_[U][V][Q], unsigned char GAMMAn_[Q][V])
 {
+#pragma HLS ARRAY_PARTITION variable=ALPHAmn_ complete dim=2
 #pragma HLS ARRAY_PARTITION variable=GAMMAn_ complete dim=1
 #pragma HLS ARRAY_PARTITION variable=BETAmn_ complete dim=1
-#pragma HLS ARRAY_PARTITION variable=ALPHA_t complete dim=1
 
 	int row,col,index,index_c,index_v,col_v,row_v,error;
 	int index_, row_;
@@ -129,11 +129,11 @@ int minmax(unsigned char BETAmn_[U][V][Q], unsigned char ALPHAmn_[U][V][Q], unsi
 
 	minmax_label1:for(row = 0; row < U; row++)// initialize variable node message ALPHA with channel info GAMMA
 	{
-#pragma HLS unroll
+#pragma HLS pipeline II=8
 		col = col_row[row][0];
 		minmax_label23:for(index = 0; index <2 ; index++)
 		{
-#pragma HLS unroll
+#pragma HLS pipeline II=1
 			col = col_row[row][index];
 			for(a = 0; a < Q; a++){
 #pragma HLS unroll
@@ -145,10 +145,10 @@ int minmax(unsigned char BETAmn_[U][V][Q], unsigned char ALPHAmn_[U][V][Q], unsi
 
 	criticalpath1:
 	for(col = 0; col < V; col ++){// tentative decoding
+#pragma HLS pipeline II=1
 		a = 0;
-#pragma HLS unroll
 		for(i = 0; i < Q; i++){
-#pragma HLS unroll
+#pragma HLS pipeline II=1
 			if(GAMMAn_[i][col] < GAMMAn_[a][col])
 			{
 				a = i;
@@ -159,16 +159,9 @@ int minmax(unsigned char BETAmn_[U][V][Q], unsigned char ALPHAmn_[U][V][Q], unsi
 
 	}
 
-for (i=0;i<V;i++)
-{
-	printf("encoded symbol %d \n",encoded_sym[V]);
-
-}
-
 	error = 0;
 	for(i = 0;i < (U);i ++){
-#pragma HLS unroll
-#pragma HLS ARRAY_PARTITION variable=GAMMAn_ complete dim=1
+#pragma HLS pipeline II=1
 		if(encoded_sym[i + U] != codeword_sym[i + U])
 			error++;
 	printf("updated error %d",error);
@@ -181,14 +174,18 @@ for (i=0;i<V;i++)
 	}
 
 	minmax_label2:while(iter < MAX_ITERATION){
-#pragma HLS pipeline II=10
-		minmax_label3:for(row = 0; row <U; row++){	// check node processing: update check node message BETA
+#pragma HLS pipeline II=1
+
+		minmax_label3:for(row = 0; row <U; row++){
+			// check node processing: update check node message BETA
+#pragma HLS pipeline II=2
+
 			row_weight_ = 2;
 			minmax_label4:for(index_c = 0, col = col_row[row][0]; index_c < row_weight_; index_c++, col = col_row[row][index_c]){
-				// 1. Initialize F and B value for each row
+
 				if(index_c == 0){
-					minmax_label5:for(a = 0; a < Q; a++){
-#pragma HLS unroll
+						minmax_label5:for(a = 0; a < Q; a++){
+
 						F[a][0] = ALPHAmn_[row][col][mul_gf(inv_gf(H_nb[row][col]),a)];
 						last_col = col_row[row][row_weight_ - 1];
 						B[a][row_weight_ - 1] = ALPHAmn_[row][last_col][mul_gf(inv_gf(H_nb[row][last_col]),a)];
@@ -199,10 +196,10 @@ for (i=0;i<V;i++)
 					index_p = index_c - 1;
 					col_p = col_row[row][index_p];
 					minmax_label323:for(c = 0; c < Q; c++){
-#pragma HLS unroll
+#pragma HLS pipeline II=1
 						min_F = max(F[c][index_c - 1],ALPHAmn_[row][col][0]);
 						minmax_label7:for(b = 0; b < Q; b++){
-#pragma HLS unroll
+#pragma HLS pipeline II=1
 							a = sub_gf(c,mul_gf(H_nb[row][col],b));
 							max_F = max(F[a][index_c - 1], ALPHAmn_[row][col][b]);
 							min_F = min(min_F, max_F);
@@ -213,12 +210,13 @@ for (i=0;i<V;i++)
 					col_B = col_row[row][index_B];
 					index_p = index_B + 1;
 					col_p = col_row[row][index_p];
+
 					minmax_label8:for(c = 0; c < Q; c++){
 
-#pragma HLS unroll
+#pragma HLS pipeline II=1
 						min_B = max(ALPHAmn_[row][col_B][0],B[c][index_B + 1]);
 						minmax_label9:for(b = 0; b < Q; b++){
-#pragma HLS unroll
+#pragma HLS pipeline II=1
 							a = sub_gf(c,mul_gf(H_nb[row][col_B],b));
 							max_B = max(B[a][index_B + 1], ALPHAmn_[row][col_B][b]);
 							min_B = min(min_B, max_B);
@@ -246,10 +244,10 @@ for (i=0;i<V;i++)
 				else{
 
 					minmax_label13:for(c = 0; c < Q; c++){
-#pragma HLS unroll
+#pragma HLS pipeline II=1
 						min_value = max(F[mul_gf(H_nb[row][col],c)][index_c - 1], B[0][index_c + 1]);
 						minmax_label14:for(b = 0; b < Q; b++){
-#pragma HLS pipeline
+#pragma HLS pipeline II=1
 							a = add_gf(b,mul_gf(H_nb[row][col],c));
 							max_value = max(F[a][index_c - 1],B[b][index_c + 1]);
 							min_value = min(max_value, min_value);
@@ -261,19 +259,21 @@ for (i=0;i<V;i++)
 			}
 		}
 		//printf("check node processing finished\n");
+
 		minmax_label15:for(col_v = 0; col_v < V; col_v ++){
-#pragma HLS unroll
+#pragma HLS pipeline II=1
 
 	// 	 processing: update variable node message ALPHA
 			index_v = 0; 
 			row_v = row_col[0][col_v];
 			minmax_label132:while(index_v < (1)){
+#pragma HLS pipeline II=8
 				row_v = row_col[index_v][col_v];
 		minmax_label17:for(a = 0; a < Q; a++){
-		temp = 0;
+					temp = 0;
 					index_ = 0;
 					row_ = row_col[0][col_v];
-					minmax_label18:while(index_<1){
+						minmax_label18:while(index_<1){
 						row_ = row_col[index_][col_v];
 						if(index_ != index_v){
 							temp += BETAmn_[row_][col_v][a];
@@ -284,12 +284,13 @@ for (i=0;i<V;i++)
 				}
 				min_index = 0;
 				minmax_label19:for(a = 1; a < Q; a++){
+#pragma HLS pipeline II=8
 					if(ALPHA_t[a] < ALPHA_t[min_index]){
 						min_index = a;
 					}
 				}
 				minmax_label20:for(a = 0; a < Q; a++){
-#pragma HLS unroll
+#pragma HLS  unroll
 					ALPHAmn_[row_v][col_v][a] = ALPHA_t[a] - ALPHA_t[min_index];
 	printf("ALPHAMAN[%d][%d][%d]=%d\n",row_v,col_v,a,ALPHAmn_[row_v][col_v][a]);
 				}
@@ -312,19 +313,15 @@ for (i=0;i<V;i++)
 					index_++;
 				}
 				GAMMAn_post[a][col] = temp + GAMMAn[a][col];
-
 			}
 			//fprintf(fp66, "%d ",GAMMAn_post[a][col]);
-
 		}
 		//fclose(fp66);
-
 		//printf("post processing finished\n");
 		minmax_label24:for(col = 0; col < V; col ++){// tentative decoding
 			a = 0;
 #pragma HLS unroll
 			minmax_label25:for(i = 0; i < Q; i++){
-
 				if(GAMMAn_post[i][col] < GAMMAn_post[a][col]){
 #pragma HLS unroll
 					a = i;
@@ -339,7 +336,6 @@ for (i=0;i<V;i++)
 				error++;
 		}
 		if(error == 0){
-
 			return 0;
 		}*/
 		iter ++;
