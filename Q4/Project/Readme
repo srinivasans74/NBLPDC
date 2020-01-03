@@ -1,2 +1,2 @@
-Download the repository and find the path of Symbolllr.txt
-Please provide the symbol llr text file in the readfunction in testq16
+Download the repository and find the path of Symbol_llr.txt
+Please provide the symbol llr text file in the read_data() function in testq16
